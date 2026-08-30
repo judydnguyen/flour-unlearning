@@ -193,3 +193,5 @@ saves/
 *.bak
 
 .claude/
+# Overleaf camera-ready paper (separate git repo)
+paper/
