@@ -1,0 +1,13 @@
+defaults:
+  - FLOUR_DDP
+
+# Early-layer FLOUR: hook layer 7 with trainable layers 3-7.
+# Contrast with FLOUR_DDP (layer 16). Editing earlier layers disrupts the
+# representations that downstream MIA probes rely on, so forget/holdout can no
+# longer be separated from untouched lower layers.
+
+method_args:
+  module_regex: "model\\.layers\\.7"
+  # Trainable layers must be <= the hook layer (7).
+  trainable_params_regex:
+    - "model\\.layers\\.(3|4|5|6|7)\\.mlp\\.down_proj\\.weight"

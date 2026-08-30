@@ -1,0 +1,10 @@
+TOFU_QA_refusal_warmup_mixed:
+  handler: QADataset
+  args:
+    hf_args:
+      path: "json"
+      data_files: "./data/refusal_warmup_mixed_forget01_retain99.jsonl"
+      split: "train"
+    question_key: "question"
+    answer_key: "answer"
+    max_length: 512

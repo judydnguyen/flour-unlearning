@@ -1,0 +1,46 @@
+defaults:
+  - GradDiff
+
+# DDP-compatible (multi-GPU) variant of FLOUR.
+# Restricts Phase 2 training to a small set of MLP layers so the AdamW optimizer
+# states fit on a single ~44 GB GPU alongside the frozen reference model.
+# For full-model Phase 2 training, use ZeRO Stage 3 with trainable_params_regex: ".*".
+
+handler: FLOURParallel
+
+args:
+  learning_rate: 2e-4
+  num_train_epochs: 10
+
+method_args:
+  # Layer whose activations are hooked (mid-model for Llama-2-7b, 32 layers).
+  module_regex: "model\\.layers\\.16"
+
+  # Params updated during Phase 2. The trainable layers must be <= the hook
+  # layer (16): both losses consume the cached layer-16 activation, so any layer
+  # > 16 receives no gradient and DDP errors on bucket rebuild.
+  trainable_params_regex:
+    - "model\\.layers\\.(14|15|16)\\.mlp\\.down_proj\\.weight"
+
+  # Encoder / Phase 1
+  latent_dim: 256
+  encoder_layers: 2
+  encoder_epochs: 2
+  encoder_lr: 1e-3
+  encoder_alpha: 0.5
+  anchor_weight: 1.0
+  simulated_forget_weight: 1.0
+  encoder_warmup_steps: 30
+
+  # Phase 2 warmup: ramp forget loss 0 -> 1 over the first N steps so the retain
+  # loss can stabilise before full forget pressure kicks in.
+  forget_warmup_steps: 100
+
+  # Phase 2 (RMU-style activation steering)
+  steering_coeff: 40
+  orth_weight: 1.0
+
+  # Inherited from GradDiff / RMU
+  gamma: 8.0
+  alpha: 1.0
+  retain_loss_type: EMBED_DIFF

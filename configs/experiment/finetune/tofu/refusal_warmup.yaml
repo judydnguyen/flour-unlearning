@@ -1,0 +1,65 @@
+# @package _global_
+#
+# SFT warmup for SteerRefuseGRPO: teaches the policy to *speak* refusals on the
+# forget set, so the GRPO refusal reward has a non-zero starting gradient.
+#
+# We train ONLY on (forget question → IDK refusal) pairs. The refusal text is
+# sampled from data/idk.jsonl per sample, so the policy doesn't memorise a
+# single canned response. Run with a small LR (1e-5) for a small number of
+# epochs (3–5) so the model learns the *style* without drifting far from its
+# general distribution — the retain side is then protected by SteerRefuseGRPO's
+# retain reward / retain loss in stage 2.
+
+defaults:
+  - override /model: Llama-3.2-1B-Instruct
+  - override /trainer: finetune
+  - override /data/datasets@data.train: TOFU_QA_forget_idk
+  - override /eval: tofu
+
+mode: finetune
+
+model:
+  model_args:
+    pretrained_model_name_or_path: open-unlearning/tofu_Llama-3.2-1B-Instruct_full
+
+forget_split: forget01
+holdout_split: holdout01
+retain_split: retain99
+retain_logs_path: null
+
+data:
+  train:
+    TOFU_QA_forget_idk:
+      args:
+        hf_args:
+          name: ${forget_split}
+        idk_path: ./data/idk.jsonl
+        # IMPORTANT: return ONLY the IDK item so the standard FinetuneTrainer +
+        # DataCollatorForSupervisedDataset see a flat (input_ids, labels) sample.
+        # If you flip this to true you also have to swap collators.
+        return_original: false
+
+trainer:
+  args:
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 1
+    # 5e-5 + 10 epochs lands final SFT loss < 0.1 on 40 samples; 1e-5 + 3 epochs
+    # only got to ~1.3, which left the model still emitting memorised TOFU
+    # answers at inference time.
+    learning_rate: 5e-5
+    weight_decay: 0.01
+    warmup_epochs: 0.5
+    num_train_epochs: 10
+    eval_strategy: 'no'
+    save_strategy: 'no'
+    eval_on_start: false
+    logging_steps: 5
+
+eval:
+  tofu:
+    forget_split: ${forget_split}
+    holdout_split: ${holdout_split}
+    retain_logs_path: ${retain_logs_path}
+    overwrite: true
+
+task_name: tofu_Llama-3.2-1B-Instruct_${forget_split}_refusal_warmup

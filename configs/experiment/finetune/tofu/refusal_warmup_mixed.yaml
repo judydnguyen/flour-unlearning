@@ -1,0 +1,57 @@
+# @package _global_
+#
+# Stage-1 SFT for SteerRefuseGRPO warmstart, *with retain protection*.
+#
+# Why: the forget-only refusal SFT (refusal_warmup.yaml) hits the right behaviour
+# on forget questions ("I don't have reliable information about that") but
+# over-generalises and refuses on retain questions too. This config mixes in
+# retain (Q → gold A) pairs so the model learns to discriminate.
+#
+# Prerequisite:
+#   python scripts/build_mixed_refusal_data.py \
+#       --forget-split forget01 --retain-split retain99 \
+#       --idk-path data/idk.jsonl --retain-multiplier 2 \
+#       --out data/refusal_warmup_mixed_forget01_retain99.jsonl
+# (the dataset config TOFU_QA_refusal_warmup_mixed expects this exact path)
+
+defaults:
+  - override /model: Llama-3.2-1B-Instruct
+  - override /trainer: finetune
+  - override /data/datasets@data.train: TOFU_QA_refusal_warmup_mixed
+  - override /eval: tofu
+
+mode: finetune
+
+model:
+  model_args:
+    pretrained_model_name_or_path: open-unlearning/tofu_Llama-3.2-1B-Instruct_full
+
+forget_split: forget01
+holdout_split: holdout01
+retain_split: retain99
+retain_logs_path: null
+
+trainer:
+  args:
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 1
+    # 5e-5 worked for the forget-only variant; same here. Fewer epochs (5 vs
+    # 10) because the mixed dataset is ~3× bigger so we get the same total
+    # gradient updates while reducing per-sample reuse.
+    learning_rate: 5e-5
+    weight_decay: 0.01
+    warmup_epochs: 0.5
+    num_train_epochs: 5
+    eval_strategy: 'no'
+    save_strategy: 'no'
+    eval_on_start: false
+    logging_steps: 5
+
+eval:
+  tofu:
+    forget_split: ${forget_split}
+    holdout_split: ${holdout_split}
+    retain_logs_path: ${retain_logs_path}
+    overwrite: true
+
+task_name: tofu_Llama-3.2-1B-Instruct_${forget_split}_refusal_warmup_mixed

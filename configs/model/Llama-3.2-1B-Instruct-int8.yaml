@@ -1,0 +1,6 @@
+defaults:
+  - Llama-3.2-1B-Instruct
+
+model_args:
+  attn_implementation: sdpa   # flash_attention_2 conflicts with bitsandbytes int8
+  load_in_8bit: true

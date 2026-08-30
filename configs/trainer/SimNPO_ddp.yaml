@@ -1,0 +1,11 @@
+defaults:
+  - SimNPO
+
+# DDP-safe overrides for dual-forward-pass trainers (forget + retain).
+# gradient_checkpointing + ddp_find_unused_parameters=true causes "marked ready
+# twice" because reentrant checkpointing fires DDP hooks on both passes.
+args:
+  ddp_find_unused_parameters: false
+  gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false

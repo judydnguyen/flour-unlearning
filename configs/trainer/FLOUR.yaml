@@ -1,0 +1,37 @@
+defaults:
+  - GradDiff
+
+handler: FLOUR
+
+args:
+  learning_rate: 1e-5
+  num_train_epochs: 10
+
+method_args:
+  # Layer whose residual-stream activations are hooked for steering.
+  module_regex: "model\\.layers\\.7"
+
+  # Params updated during Phase 2 (RMU-style). ".*" = full model.
+  trainable_params_regex:
+    - ".*"
+
+  # Encoder / Phase 1
+  latent_dim: 256
+  encoder_layers: 2
+  encoder_epochs: 2
+  encoder_lr: 1e-3
+  orth_weight: 1.0           # deprecated: retained for config compatibility
+  anchor_weight: 1.0         # weight on the on-manifold anchor term in Phase 1
+  anchor_mode: blank         # blank | refusal | corrupt | delta  (answer-ablation knob)
+  ablation_token: unk        # token replacing the answer span in blank/delta modes
+  simulated_forget_weight: 1.0
+  encoder_warmup_steps: 30   # pre-align the steering direction with the anchor
+
+  # Phase 2 (RMU-style activation steering)
+  steering_coeff: 20
+  forget_warmup_steps: 0
+
+  # Inherited from GradDiff / RMU
+  gamma: 1.0                 # forget loss weight
+  alpha: 1.0                 # retain loss weight
+  retain_loss_type: EMBED_DIFF
